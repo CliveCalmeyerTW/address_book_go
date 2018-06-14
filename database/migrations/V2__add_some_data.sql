@@ -7,11 +7,19 @@ INSERT INTO address_book (
   email,
   telephone
 ) VALUES (
-  'Ben',
-  'Hur',
+  'Sammy',
+  'Jones',
   '30 Long Street',
   'Oxford',
   'OX0 1XX',
-  'benhur@example.com',
+  'sjones@example.com',
   '07700 123456'
+), (
+  'Jenny',
+  'Woople',
+  '2 Short Road',
+  'Oxford',
+  'OX0 2PP',
+  'jenny@example.com',
+  '07711 678346'
 );
