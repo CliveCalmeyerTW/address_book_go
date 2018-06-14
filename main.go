@@ -2,11 +2,17 @@ package main
 
 import (
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"net/http"
 )
 
 func main() {
 	r := chi.NewRouter()
+
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.URLFormat)
 
 	r.Get("/", func(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Address book coming soon"))
