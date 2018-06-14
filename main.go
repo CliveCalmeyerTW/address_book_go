@@ -1,9 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"net/http"
+
+	"database/sql"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -32,8 +38,45 @@ func main() {
 	http.ListenAndServe(":8080", r)
 }
 
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func getCxn() *sql.DB {
+	dsn := "postgres://addy:addypass@localhost/address_book?sslmode=disable"
+	cxn, err := sql.Open("postgres", dsn)
+	checkErr(err)
+
+	return cxn
+}
+
+func closeCxn(cxn *sql.DB) {
+	cxn.Close()
+}
+
 func listAddresses(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("a list of addresses"))
+	cxn := getCxn()
+	defer closeCxn(cxn)
+
+	result := strings.Builder{}
+
+	addresses, err := cxn.Query("SELECT id, first_name, last_name FROM address_book")
+	checkErr(err)
+
+	for addresses.Next() {
+		var (
+			id       int
+			firsName string
+			lastName string
+		)
+		err := addresses.Scan(&id, &firsName, &lastName)
+		checkErr(err)
+		fmt.Fprintf(&result, "(%d) %s %s\n", id, firsName, lastName)
+	}
+
+	res.Write([]byte(result.String()))
 }
 
 func findAddresses(res http.ResponseWriter, req *http.Request) {
