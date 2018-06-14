@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/render"
 	"net/http"
 
 	"database/sql"
@@ -19,6 +17,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
+	r.Use(render.SetContentType(render.ContentTypeJSON))
 
 	r.Get("/", func(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Address book coming soon"))
@@ -52,31 +51,41 @@ func getCxn() *sql.DB {
 	return cxn
 }
 
-func closeCxn(cxn *sql.DB) {
-	cxn.Close()
+type AddressListItem struct {
+	Id        int    `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+func (a *AddressListItem) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
 }
 
 func listAddresses(res http.ResponseWriter, req *http.Request) {
 	cxn := getCxn()
-	defer closeCxn(cxn)
+	defer cxn.Close()
 
-	result := strings.Builder{}
+	list := []render.Renderer{}
 
-	addresses, err := cxn.Query("SELECT id, first_name, last_name FROM address_book")
+	addresses, err := cxn.Query(`
+		SELECT 		id, 
+					first_name, 
+					last_name 
+		FROM 		address_book
+		ORDER BY 	last_name ASC
+	`)
 	checkErr(err)
+	defer addresses.Close()
 
 	for addresses.Next() {
-		var (
-			id       int
-			firsName string
-			lastName string
-		)
-		err := addresses.Scan(&id, &firsName, &lastName)
+		var address = new(AddressListItem)
+		err := addresses.Scan(&address.Id, &address.FirstName, &address.LastName)
 		checkErr(err)
-		fmt.Fprintf(&result, "(%d) %s %s\n", id, firsName, lastName)
+		list = append(list, address)
 	}
 
-	res.Write([]byte(result.String()))
+	err = render.RenderList(res, req, list)
+	checkErr(err)
 }
 
 func findAddresses(res http.ResponseWriter, req *http.Request) {
