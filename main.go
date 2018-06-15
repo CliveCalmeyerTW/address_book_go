@@ -1,40 +1,40 @@
 package main
 
 import (
+	"github.com/CliveCalmeyerTW/address_book_go/entity"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"net/http"
 
-	"database/sql"
-	_ "github.com/lib/pq"
+	"./repository"
 )
 
 func main() {
-	r := chi.NewRouter()
+	router := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.URLFormat)
-	r.Use(render.SetContentType(render.ContentTypeJSON))
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+	router.Use(render.SetContentType(render.ContentTypeJSON))
 
-	r.Get("/", func(res http.ResponseWriter, req *http.Request) {
-		res.Write([]byte("Address book coming soon"))
+	router.Get("/", func(response http.ResponseWriter, request *http.Request) {
+		response.Write([]byte("Address book coming soon"))
 	})
 
-	r.Route("/addresses", func(r chi.Router) {
-		r.Get("/", listAddresses)
-		r.Get("/search/{query}", findAddresses)
-		r.Post("/", createAddress)
-		r.Route("/{id:\\d+}", func(r chi.Router) {
-			r.Get("/", retrieveAddress)
-			r.Put("/", updateAddress)
-			r.Delete("/", deleteAddress)
+	router.Route("/addresses", func(router chi.Router) {
+		router.Get("/", listAddresses)
+		// router.Get("/search/{query}", findAddresses)
+		router.Post("/", createAddress)
+		router.Route("/{id:\\d+}", func(router chi.Router) {
+			router.Get("/", retrieveAddress)
+			router.Put("/", updateAddress)
+			router.Delete("/", deleteAddress)
 		})
 	})
 
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(":8080", router)
 }
 
 func checkErr(err error) {
@@ -43,67 +43,61 @@ func checkErr(err error) {
 	}
 }
 
-func getCxn() *sql.DB {
-	dsn := "postgres://addy:addypass@localhost/address_book?sslmode=disable"
-	cxn, err := sql.Open("postgres", dsn)
-	checkErr(err)
-
-	return cxn
+type NotFoundError struct {
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
-type AddressListItem struct {
-	Id        int    `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-func (a *AddressListItem) Render(w http.ResponseWriter, r *http.Request) error {
+func (e *NotFoundError) Render(response http.ResponseWriter, request *http.Request) error {
+	e.Status = 404
+	e.Message = "not found"
 	return nil
 }
 
-func listAddresses(res http.ResponseWriter, req *http.Request) {
-	cxn := getCxn()
-	defer cxn.Close()
-
-	list := []render.Renderer{}
-
-	addresses, err := cxn.Query(`
-		SELECT 		id, 
-					first_name, 
-					last_name 
-		FROM 		address_book
-		ORDER BY 	last_name ASC
-	`)
+func listAddresses(response http.ResponseWriter, request *http.Request) {
+	addresses, err := repository.List()
 	checkErr(err)
-	defer addresses.Close()
+	renderers := []render.Renderer{}
 
-	for addresses.Next() {
-		var address = new(AddressListItem)
-		err := addresses.Scan(&address.Id, &address.FirstName, &address.LastName)
-		checkErr(err)
-		list = append(list, address)
+	for _, address := range addresses {
+		renderers = append(renderers, &entity.AddressResponse{Address: address})
 	}
 
-	err = render.RenderList(res, req, list)
+	err = render.RenderList(response, request, renderers)
 	checkErr(err)
 }
 
-func findAddresses(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("find addresses"))
+// func findAddresses(response http.ResponseWriter, request *http.Request) {
+// 	response.Write([]byte("find addresses"))
+// }
+
+func createAddress(response http.ResponseWriter, request *http.Request) {
+	addressRequest := &entity.AddressRequest{}
+	err := render.Bind(request, addressRequest)
+	checkErr(err)
+	address := addressRequest.Address
+	repository.Create(address)
+	render.Status(request, http.StatusCreated)
+	render.Render(response, request, &entity.AddressResponse{Address: address})
 }
 
-func createAddress(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("create an address"))
+func retrieveAddress(response http.ResponseWriter, request *http.Request) {
+	id := chi.URLParam(request, "id")
+	address, err := repository.Retrieve(id)
+	if err != nil {
+		render.Status(request, http.StatusNotFound)
+		render.Render(response, request, &NotFoundError{})
+		return
+	}
+	renderer := &entity.AddressResponse{Address: address}
+	err = render.Render(response, request, renderer)
+	checkErr(err)
 }
 
-func retrieveAddress(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("retrieve an address"))
+func deleteAddress(response http.ResponseWriter, request *http.Request) {
+	response.Write([]byte("delete an address"))
 }
 
-func deleteAddress(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("delete an address"))
-}
-
-func updateAddress(res http.ResponseWriter, req *http.Request) {
-	res.Write([]byte("update an address"))
+func updateAddress(response http.ResponseWriter, request *http.Request) {
+	response.Write([]byte("update an address"))
 }
