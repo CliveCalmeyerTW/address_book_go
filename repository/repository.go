@@ -2,14 +2,37 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/lib/pq"
+	"os"
 	"strconv"
 
 	"github.com/CliveCalmeyerTW/address_book_go/entity"
 )
 
 func getCxn() *sql.DB {
-	dsn := "postgres://addy:addypass@localhost/address_book?sslmode=disable"
+
+	dbuser := os.Getenv("DBUSER")
+	if dbuser == "" {
+		dbuser = "addy"
+	}
+
+	dbpass := os.Getenv("DBPASS")
+	if dbpass == "" {
+		dbpass = "addypass"
+	}
+
+	dbhost := os.Getenv("DBHOST")
+	if dbhost == "" {
+		dbhost = "localhost"
+	}
+
+	dbname := os.Getenv("DBNAME")
+	if dbname == "" {
+		dbname = "address_book"
+	}
+
+	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbuser, dbpass, dbhost, dbname)
 	cxn, err := sql.Open("postgres", dsn)
 	if err != nil {
 		panic(err)

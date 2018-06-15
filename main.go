@@ -1,16 +1,24 @@
 package main
 
 import (
-	"github.com/CliveCalmeyerTW/address_book_go/entity"
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"net/http"
+	"os"
 
-	"./repository"
+	"github.com/CliveCalmeyerTW/address_book_go/entity"
+	"github.com/CliveCalmeyerTW/address_book_go/repository"
 )
 
 func main() {
+
+	port := os.Getenv("APIPORT")
+	if port == "" {
+		port = "8700"
+	}
+
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -34,7 +42,7 @@ func main() {
 		})
 	})
 
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(fmt.Sprintf(":%s", port), router)
 }
 
 func checkErr(err error) {
